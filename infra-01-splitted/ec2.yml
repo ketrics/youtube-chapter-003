@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: VPC and EC2 Instance deployment
+
+
+Parameters:
+  ImageId:
+    Type: String
+    Default: ami-0fac5486e4cff37f4
+    Description: Instance ImageId
+  SSHKeyName:
+    Type: String
+    Default: ketricslabs
+    Description: SSH KeyName to register EC2 Instances
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t2.micro, t2.small, t2.medium]
+    ConstraintDescription: Please choose a valid instance type.
+
+
+Resources:
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !ImportValue ketricslabs-network-VPCID
+      GroupDescription: Enable SSH
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+
+  Ec2Instance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: !Ref ImageId
+      KeyName: !Ref SSHKeyName
+      InstanceType: !Ref InstanceType
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      SubnetId: !ImportValue ketricslabs-network-PublicSubnet1
+      UserData:
+        Fn::Base64: 
+          Fn::Sub:
+            - |
+              #!/bin/bash -xe
+
+              # Update
+              sudo yum -y update          
+              sudo yum install -y nano
+
+              # Mount EFS
+              sudo yum install -y amazon-efs-utils
+
+            - {
+              }
+
+Outputs:
+  Ec2PublicName:
+    Value: !GetAtt Ec2Instance.PublicDnsName
+    Description: "Public name (connect via SSH)"
+    Export:
+      Name: !Sub "${AWS::StackName}-Ec2PublicName"
